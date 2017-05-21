@@ -43,7 +43,7 @@ class TinyDBStore(object):
         self.events_db.update(event, eids=[event.eid])
 
     def remove_event(self, event):
-        self.events_db.remove(eids=[event['id']])
+        self.events_db.remove(eids=[event.eid])
 
     def get_events(self, user_id, name=None):
         if name:
