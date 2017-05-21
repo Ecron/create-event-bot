@@ -8,9 +8,9 @@ import json
 import csv
 from six.moves import urllib
 
-from telegram import InlineQueryResultArticle, ParseMode, \
-    InputTextMessageContent, InlineKeyboardButton, InlineKeyboardMarkup, Emoji
-from telegram.ext import InlineQueryHandler, CallbackQueryHandler, ChosenInlineResultHandler
+from telegram import ParseMode, \
+    InlineKeyboardButton, InlineKeyboardMarkup, Emoji
+from telegram.ext import CallbackQueryHandler
 
 from store import TinyDBStore
 
@@ -26,16 +26,16 @@ def create_event_payload(event):
 
 
 def create_keyboard(event, user):
-    if event.get('invite'):
-        button = [
-            InlineKeyboardButton(
-                text="\U0001F4E2 Entreu a CELP familiar",
-                url=links['channel']
-            )
-        ]
-        return [button, []]
-
-    else:
+#    if event.get('invite'):
+#        button = [
+#            InlineKeyboardButton(
+#                text="\U0001F4E2 Entreu a CELP familiar",
+#                url=links['channel']
+#            )
+#        ]
+#        return [button, []]
+#
+#    else:
         eventdate2= int(event['date']) + 600
 
         today= datetime.datetime.now()
@@ -53,7 +53,7 @@ def create_keyboard(event, user):
 
         button = [
             InlineKeyboardButton(
-                text="\U0001F465 Afegeix-m'hi / treu-me'n",
+                text="\U0001F465 Apunta'm / Desapunta'm",
                 callback_data='go_' + str(event.eid)
             )
         ]
@@ -66,15 +66,15 @@ def create_keyboard(event, user):
             InlineKeyboardButton(
                 text="\U0001F469\U0001F3FB",
                 callback_data='gowoman_' + str(event.eid)
-            ),
-            InlineKeyboardButton(
-                text="\U0001F466\U0001F3FC",
-                callback_data='goboy_' + str(event.eid)
-            ),
-            InlineKeyboardButton(
-                text="\U0001F467\U0001F3FC",
-                callback_data='gogirl_' + str(event.eid)
-            )
+            )#,
+#            InlineKeyboardButton(
+#                text="\U0001F466\U0001F3FC",
+#                callback_data='goboy_' + str(event.eid)
+#            ),
+#            InlineKeyboardButton(
+#                text="\U0001F467\U0001F3FC",
+#                callback_data='gogirl_' + str(event.eid)
+#            )
         ]
 
         if event.get('parking'):
@@ -84,16 +84,36 @@ def create_keyboard(event, user):
             ))
 
         buttons = [
-            InlineKeyboardButton(
-                text="\U0001F5D3 Calendari",
-                url='http://celapalma.org/calendari_celp/add.html#' + create_event_payload(event)
-            )
+#            InlineKeyboardButton(
+#                text="\U0001F5D3 Calendari",
+#                url='http://celapalma.org/calendari_celp/add.html#' + create_event_payload(event)
+#            )
         ]
 
         if event.get('route'):
+            if event['route'].find('id=') >= 0:
+                address0 = event['route'].split('id=')
+                if address0[1].isdigit():
+                    address1 = "https://ca.wikiloc.com/wikiloc/spatialArtifacts.do?event=view&id=" + address0[1] + "&measures=on&title=off&near=off&images=off&maptype=S"
+                else:
+                    address1 = event.get('route')
+            else:
+                address1 = event.get('route')
+
             buttons.append(InlineKeyboardButton(
-                text="\U0001F5FA Ruta",
-                url=event.get('route')
+                 text="🏞 Ruta",
+                 url=address1
+	     ))
+
+        if event.get('parking') and event['parking'].find('|') >= 0:
+            buttons.append(InlineKeyboardButton(
+                 text="🗺 Com arribar",
+                 callback_data='parking_' + str(event.eid)
+            ))
+        elif event.get('place') and event['place'].find('|') >= 0:
+            buttons.append(InlineKeyboardButton(
+                 text="🗺 Com arribar",
+                 callback_data='place_' + str(event.eid)
             ))
 
         if today3 >= eventdate2:
@@ -106,26 +126,26 @@ def format_date(param):
     locale.setlocale(locale.LC_TIME, "ca_ES.utf8")
     timestamp = int(param)
     date = datetime.datetime.fromtimestamp(timestamp)
-    return date.strftime("%A, %d %B %Y a les %H.%M hores")
+    return date.strftime("%A, %d/%m/%Y a les %H:%M")
 
 
 def create_event_message(event, user):
-    if event['name'] == 'Convideu al canal':
-        if event['invite'] == 'yes':
-            user_f = user['first_name']
-            user_ln = user['last_name']
-            user_u = user['username']
-            if user_ln != "" and user_u != "":
-               user_d= user_f + " " + user_ln + "* (podeu contactar-hi amb @" + user_u + ")"
-            elif user_ln == "" and user_u != "":
-               user_d= user_f + "* (podeu contactar-hi amb @" + user_u + ")" 
-            elif user_ln != "" and user_u == "":
-               user_d= user_f + " " + user_ln + "*"
-            elif user_ln == "" and user_u == "":
-               user_d= user_f + "*"
-            message_text = 'Missatge del robot del CELP\n\n\u2709\uFE0F *' +user_d + " us convida al canal privat *«CELP familiar»*.\n\nPer entrar-hi premeu el botó \U0001F4E2 _Entreu a CELP familiar_, i a continuació seleccioneu *«JOIN»* o bé *«AFEGEIX-M'HI»*.\n\nSi us afegiu a aquest canal privat només rebreu informació de les excursions i tindreu l'opció d'apuntar-vos-hi, però això no és un grup, per tant ningú hi pot escriure."
-            return message_text
-    else:
+#    if event['name'] == 'Convideu al canal':
+#        if event['invite'] == 'yes':
+#            user_f = user['first_name']
+#            user_ln = user['last_name']
+#            user_u = user['username']
+#            if user_ln != "" and user_u != "":
+#               user_d= user_f + " " + user_ln + "* (podeu contactar-hi amb @" + user_u + ")"
+#            elif user_ln == "" and user_u != "":
+#               user_d= user_f + "* (podeu contactar-hi amb @" + user_u + ")" 
+#            elif user_ln != "" and user_u == "":
+#               user_d= user_f + " " + user_ln + "*"
+#            elif user_ln == "" and user_u == "":
+#               user_d= user_f + "*"
+#            message_text = 'Missatge del robot del CELP\n\n\u2709\uFE0F *' +user_d + " us convida al canal privat *«CELP familiar»*.\n\nPer entrar-hi premeu el botó \U0001F4E2 _Entreu a CELP familiar_, i a continuació seleccioneu *«JOIN»* o bé *«AFEGEIX-M'HI»*.\n\nSi us afegiu a aquest canal privat només rebreu informació de les excursions i tindreu l'opció d'apuntar-vos-hi, però això no és un grup, per tant ningú hi pot escriure."
+#            return message_text
+#    else:
         eventdate2= int(event['date']) + 600
 
         today= datetime.datetime.now()
@@ -141,19 +161,41 @@ def create_event_message(event, user):
         timestamp = time.mktime(datetime.datetime(*time_struct[:6]).timetuple())
         today3= int(timestamp)
 
-        message_text = "*{name}*\n{date}\n".format(
+        if event['type'] == 'Senderisme':
+            emojitype = Emoji.ATHLETIC_SHOE
+        elif event['type'] == 'Bicicleta':
+            emojitype = Emoji.MOUNTAIN_BICYCLIST
+        elif event['type'] == 'Nocturna':
+            emojitype = Emoji.MILKY_WAY
+
+        message_text = (emojitype + " *{name}*\n{date}\n").format(
             name=event['name'],
             date=format_date(event['date'])
         )
 
+        if 'difficulty' in event:
+            message_text += 'Dificultat: ' + event['difficulty'] +'\n'
+
         if 'description' in event:
             message_text += '\n_' + event['description'] + '_\n'
 
+        if 'duration' in event:
+            message_text += '\n⏱️ ~' + event['duration'] + '\n'
+
         if 'place' in event:
-            message_text += '\n' + Emoji.ROUND_PUSHPIN + ' ' + event['place'] + ' [(mapa)](http://www.openstreetmap.org/search?query=' + urllib.parse.quote(event.get("place")) + ')\n'
+            if event['place'].find('|') > 0:
+               (latit, longi) = tuple(event['place'].split('|'))
+               message_text += Emoji.ROUND_PUSHPIN + ' [Punt de trobada](https://www.openstreetmap.org/?mlat=' + latit + '&mlon=' + longi + '#map=15/' + latit + '/' + longi + ').\n'
+
+            else:
+               message_text += Emoji.ROUND_PUSHPIN + ' ' + event['place'] + ' [(mapa)](http://www.openstreetmap.org/search?query=' + urllib.parse.quote(event.get("place")) + ').\n'
 
         if 'parking' in event:
-            message_text += Emoji.AUTOMOBILE + ' ' + event['parking'] + ' [(mapa)](http://www.openstreetmap.org/search?query=' + urllib.parse.quote(event.get("parking")) + ')\n'
+            if event['parking'].find('|') > 0:
+               (latit, longi) = tuple(event['parking'].split('|'))
+               message_text += Emoji.AUTOMOBILE + ' [Punt d\'aparcament](https://www.openstreetmap.org/?mlat=' + latit + '&mlon=' + longi + '#map=15/' + latit + '/' + longi + ').\n'
+            else:
+               message_text += Emoji.AUTOMOBILE + ' ' + event['parking'] + ' [(mapa)](http://www.openstreetmap.org/search?query=' + urllib.parse.quote(event.get("parking")) + ').\n'
 
     #   if 'route' in event:
     #       message_text += '\n' + Emoji.CLOCKWISE_DOWNWARDS_AND_UPWARDS_OPEN_CIRCLE_ARROWS + ' [Mapa amb la ruta](' + event['route'] + ')'
@@ -164,7 +206,6 @@ def create_event_message(event, user):
             else:
                 message_text += '\nHi aniran: \n'
             for u in event['users']:
-                #message_text += '\U0001F449\U0001F3FC '
                 message_text += '\u27A9 '
         
                 message_text += u['first_name']
@@ -278,8 +319,8 @@ def create_event_message(event, user):
                 message_text += '\n'
         if today3 >= eventdate2:
              message_text += "\n\U0001F5C3 Excursió arxivada."
-        else:
-             message_text += "\n\U0001F527 Instruccions d'ús dels botons: [aquí](http://telegra.ph/Instruccions-d%c3%bas-CELP-familiar-11-28)."
+#        else:
+#             message_text += "\n\U0001F527 Instruccions d'ús dels botons: [aquí](http://telegra.ph/Instruccions-d%c3%bas-CELP-familiar-11-28)."
 
         return message_text
 
@@ -287,9 +328,7 @@ def create_event_message(event, user):
 class InlineModule(object):
     def __init__(self):
         self.handlers = [
-            InlineQueryHandler(self.inline_query),
             CallbackQueryHandler(self.callback_handler),
-            ChosenInlineResultHandler(self.inline_stats)
         ]
         self.store = TinyDBStore()
 
@@ -324,27 +363,40 @@ class InlineModule(object):
                      writer.writerow([stat])
 
     def callback_handler(self, bot, update):
-        query = update.callback_query
-        data = query.data
-        user = query.from_user.__dict__
+      query = update.callback_query
+      data = query.data
+      user = query.from_user.__dict__
 
-        (command, event_id) = tuple(data.split('_'))
-        event = self.store.get_event(event_id)
+      (command, event_id) = tuple(data.split('_'))
+      event = self.store.get_event(event_id)
 
-        eventdate2= int(event['date']) + 600
+      eventdate2= int(event['date']) + 600
 
-        today= datetime.datetime.now()
-        day = str(today.day)
-        month = str(today.month)
-        year = str(today.year)
-        hour = str(today.hour)
-        minute = str(today.minute)
-        today2= month + '/' + day + '/' + year + ' ' + hour + ':' + minute
+      today= datetime.datetime.now()
+      day = str(today.day)
+      month = str(today.month)
+      year = str(today.year)
+      hour = str(today.hour)
+      minute = str(today.minute)
+      today2= month + '/' + day + '/' + year + ' ' + hour + ':' + minute
 
-        cal = parsedatetime.Calendar()
-        time_struct, parse_status = cal.parse(today2)
-        timestamp = time.mktime(datetime.datetime(*time_struct[:6]).timetuple())
-        today3= int(timestamp)
+      cal = parsedatetime.Calendar()
+      time_struct, parse_status = cal.parse(today2)
+      timestamp = time.mktime(datetime.datetime(*time_struct[:6]).timetuple())
+      today3= int(timestamp)
+
+      if data.startswith( 'enviagrup' ):
+        callback_query_id=query.id
+        bot.answerCallbackQuery(callback_query_id=query.id, text="S'ha enviat l'excursió al grup.")
+        bot.sendMessage(
+             chat_id = chats['group'],
+             text = create_event_message(event, user),
+             reply_markup = InlineKeyboardMarkup(inline_keyboard = create_keyboard(event, user)),
+             parse_mode = ParseMode.MARKDOWN,
+	     disable_web_page_preview = True
+         )
+
+      else:
 
         if not event.get('users'):
             event['users'] = []
@@ -413,80 +465,137 @@ class InlineModule(object):
 
         if command == 'go' and eventdate2 > today3:
             event = self.toggle_user(event, user)
-
-        if command == 'goman' and eventdate2 > today3:
+            self.update_message(bot, event, update, user)
+            
+        elif command == 'goman' and eventdate2 > today3:
             event = self.toggle_man(event, user)
+            self.update_message(bot, event, update, user)
 
-        if command == 'gowoman' and eventdate2 > today3:
+        elif command == 'gowoman' and eventdate2 > today3:
             event = self.toggle_woman(event, user)
+            self.update_message(bot, event, update, user)
 
-        if command == 'goboy' and eventdate2 > today3:
+        elif command == 'goboy' and eventdate2 > today3:
             event = self.toggle_boy(event, user)
+            self.update_message(bot, event, update, user)
 
-        if command == 'gogirl' and eventdate2 > today3:
+        elif command == 'gogirl' and eventdate2 > today3:
             event = self.toggle_girl(event, user)
+            self.update_message(bot, event, update, user)
 
-        if command == 'gocar' and eventdate2 > today3:
+        elif command == 'gocar' and eventdate2 > today3:
             event = self.toggle_car(event, user)
+            self.update_message(bot, event, update, user)
 
-        if today3 >= eventdate2:
+        elif today3 >= eventdate2 and command != 'parking' and command != 'place':
             event = self.past_event(event, user)
+            self.update_message(bot, event, update, user)
 
-        bot.editMessageText(text=create_event_message(event, user),
-                            inline_message_id=query.inline_message_id,
+
+        if data.startswith( 'goman' ):
+            if eventdate2 > today3:
+                if event is not True and any(u['id'] == user['id'] for u in event['users']):
+                     callback_query_id=query.id
+                     bot.answerCallbackQuery(callback_query_id=query.id, text="Has canviat el nombre d'homes que hi aniran.")
+            else:
+                callback_query_id=query.id
+                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió.")
+        elif data.startswith( 'gowoman' ):
+            if eventdate2 > today3:
+                if event is not True and any(u['id'] == user['id'] for u in event['users']):
+                    callback_query_id=query.id
+                    bot.answerCallbackQuery(callback_query_id=query.id, text="Has canviat el nombre de dones que hi aniran.")
+            else:
+                callback_query_id=query.id
+                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió.")
+        elif data.startswith( 'goboy' ):
+            if eventdate2 > today3:
+                if event is not True and any(u['id'] == user['id'] for u in event['users']):
+                    callback_query_id=query.id
+                    bot.answerCallbackQuery(callback_query_id=query.id, text="Has canviat el nombre de xiquets que hi aniran.")
+            else:
+                callback_query_id=query.id
+                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió.")
+        elif data.startswith( 'gogirl' ):
+            if eventdate2 > today3:
+                if event is not True and any(u['id'] == user['id'] for u in event['users']):
+                    callback_query_id=query.id
+                    bot.answerCallbackQuery(callback_query_id=query.id, text="Has canviat el nombre de xiquetes que hi aniran.")
+            else:
+                callback_query_id=query.id
+                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió.")
+        elif data.startswith( 'gocar' ):
+            if eventdate2 > today3:
+                if event is not True and any(u['id'] == user['id'] for u in event['users']):
+                    callback_query_id=query.id
+                    bot.answerCallbackQuery(callback_query_id=query.id, text="Has canviat el nombre de cotxes per a l'excursió.")
+            else:
+                callback_query_id=query.id
+                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió.")
+        elif data.startswith( 'go' ):
+            if eventdate2 > today3:
+                callback_query_id=query.id
+                bot.answerCallbackQuery(callback_query_id=query.id, text="Has canviat la teua assistència a l'excursió.")
+        elif data.startswith( 'parking' ):
+            if eventdate2 > today3:
+                callback_query_id = query.id
+                (latit, longi) = tuple(event['parking'].split('|'))
+                bot.answerCallbackQuery(callback_query_id=query.id, text="S'ha enviat la ubicació de l\'aparcament.")
+                bot.sendMessage(chat_id=query.message.chat.id,
+                                text = "Si voleu saber com arribar a l'aparcament, obriu amb la vostra aplicació de Mapes preferida la ubicació que vos envie i configureu la ruta.",
+                                parse_mode = "Markdown",
+                                disable_notification = True
+                )
+                bot.sendLocation(chat_id=query.message.chat.id,
+                                 latitude = float(latit),
+                                 longitude = float(longi),
+                                 reply_to_message_id = query.message.message_id,
+                                 disable_notification = True
+                )
+            else:
+                callback_query_id=query.id
+                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió.")
+        elif data.startswith( 'place' ):
+            if eventdate2 > today3:
+                callback_query_id = query.id
+                (latit, longi) = tuple(event['place'].split('|'))
+                bot.answerCallbackQuery(callback_query_id=query.id, text="S'ha enviat la ubicació del punt de trobada.")
+                bot.sendMessage(chat_id=query.message.chat.id,
+                                text = "Si voleu saber com arribar al punt de trobada, obriu amb la vostra aplicació de Mapes preferida la ubicació que vos envie i configureu la ruta.",
+                                parse_mode = "Markdown",
+                                disable_notification = True
+                )
+                bot.sendLocation(chat_id=query.message.chat.id,
+                                 latitude = float(latit),
+                                 longitude = float(longi),
+                                 reply_to_message_id = query.message.message_id,
+                                 disable_notification = True
+                )
+            else:
+                callback_query_id=query.id
+                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió.")
+
+
+    def update_message(self, bot, event, update, user):
+        query = update.callback_query
+        if event == True:
+           callback_query_id=query.id
+           bot.answerCallbackQuery(callback_query_id=query.id, text="Apunta't a l'excursió per a poder usar els botons.", show_alert=True)
+        else:
+           bot.editMessageText(text=create_event_message(event, user),
+                            chat_id=query.message.chat.id,
+                            message_id=query.message.message_id,
                             reply_markup=InlineKeyboardMarkup(inline_keyboard=create_keyboard(event, user)),
                             parse_mode=ParseMode.MARKDOWN,
 			    disable_web_page_preview=True)
 
-        if data.startswith( 'goman' ):
-            if eventdate2 > today3:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="Heu canviat el nombre d'homes adults que assistiran a l'excursió")
-            else:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió")
-        elif data.startswith( 'gowoman' ):
-            if eventdate2 > today3:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="Heu canviat el nombre de dones adultes que assistiran a l'excursió")
-            else:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió")
-        elif data.startswith( 'goboy' ):
-            if eventdate2 > today3:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="Heu canviat el nombre de nens que assistiran a l'excursió")
-            else:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió")
-        elif data.startswith( 'gogirl' ):
-            if eventdate2 > today3:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="Heu canviat el nombre de nenes que assistiran a l'excursió")
-            else:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió")
-        elif data.startswith( 'gocar' ):
-            if eventdate2 > today3:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="Heu canviat el nombre de cotxes per a l'excursió")
-            else:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió")
-        elif data.startswith( 'go' ):
-            if eventdate2 > today3:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="Heu canviat la vostra assistència a l'excursió")
-            else:
-                callback_query_id=query.id
-                bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió")
 
     def go_yes(self, event, user):
         if user['last_name'] != '':
-             r = requests.get('https://api.telegram.org/bot' + params['token'] + '/sendMessage?chat_id=' + chats['group'] + '&text=' + urllib.parse.quote("\U0001F44D\U0001F3FC *") + urllib.parse.quote(user['first_name']) + urllib.parse.quote(" ") + urllib.parse.quote(user['last_name']) + urllib.parse.quote("* s'ha afegit a l'excursió _«") + urllib.parse.quote(event.get("name")) + urllib.parse.quote('»_ \U0001F60A') +'&parse_mode=Markdown')
+             r = requests.get('https://api.telegram.org/bot' + params['token'] + '/sendMessage?chat_id=' + chats['group'] + '&text=' + urllib.parse.quote("\U0001F44D\U0001F3FC *") + urllib.parse.quote(user['first_name']) + urllib.parse.quote(" ") + urllib.parse.quote(user['last_name']) + urllib.parse.quote("* s'ha apuntat a l'excursió _«") + urllib.parse.quote(event.get("name")) + urllib.parse.quote('»_ \U0001F60A') +'&parse_mode=Markdown')
              return r
         else:
-             r = requests.get('https://api.telegram.org/bot' + params['token'] + '/sendMessage?chat_id=' + chats['group'] + '&text=' + urllib.parse.quote("\U0001F44D\U0001F3FC *") + urllib.parse.quote(user['first_name']) + urllib.parse.quote("* s'ha afegit a l'excursió _«") + urllib.parse.quote(event.get("name")) + urllib.parse.quote('»_ \U0001F60A') +'&parse_mode=Markdown')
+             r = requests.get('https://api.telegram.org/bot' + params['token'] + '/sendMessage?chat_id=' + chats['group'] + '&text=' + urllib.parse.quote("\U0001F44D\U0001F3FC *") + urllib.parse.quote(user['first_name']) + urllib.parse.quote("* s'ha apuntat a l'excursió _«") + urllib.parse.quote(event.get("name")) + urllib.parse.quote('»_ \U0001F60A') +'&parse_mode=Markdown')
              return r
 
     def go_no(self, event, user):
@@ -503,7 +612,7 @@ class InlineModule(object):
 
         if any(u['id'] == user['id'] for u in event['users']):
             event['users'].remove(user)
-            self.go_no(event, user)
+#            self.go_no(event, user)
         else:
             user.update({'man': 0})
             user.update({'woman': 0})
@@ -511,7 +620,7 @@ class InlineModule(object):
             user.update({'girl': 0})
             user.update({'car': 0})
             event['users'].append(user)
-            self.go_yes(event, user)
+#            self.go_yes(event, user)
 
         self.store.update_event(event)
         return event
@@ -545,7 +654,9 @@ class InlineModule(object):
                user.update({'man': 0})
                event['users'].append(user)
         else:
-               not_user = yes
+#               not_user = yes
+               event = True
+               return event
 
         self.store.update_event(event)
         return event
@@ -579,7 +690,9 @@ class InlineModule(object):
                user.update({'woman': 0})
                event['users'].append(user)
         else:
-               not_user = yes
+#               not_user = yes
+               event = True
+               return event
 
         self.store.update_event(event)
         return event
@@ -613,7 +726,9 @@ class InlineModule(object):
                user.update({'boy': 0})
                event['users'].append(user)
         else:
-               not_user = yes
+#               not_user = yes
+               event = True
+               return event
 
         self.store.update_event(event)
         return event
@@ -647,7 +762,9 @@ class InlineModule(object):
                user.update({'girl': 0})
                event['users'].append(user)
         else:
-               not_user = yes
+#               not_user = yes
+               event = True
+               return event
 
         self.store.update_event(event)
         return event
@@ -673,7 +790,9 @@ class InlineModule(object):
                user.update({'car': 0})
                event['users'].append(user)
         else:
-               not_user = yes
+#               not_user = yes
+               event = True
+               return event
 
         self.store.update_event(event)
         return event
@@ -682,62 +801,62 @@ class InlineModule(object):
         self.store.update_event(event)
         return event
 
-    def inline_query(self, bot, update):
-        query = update.inline_query.query
-        user_id = update.inline_query.from_user.id
-        user = update.inline_query.from_user.__dict__
+#    def inline_query(self, bot, update):
+#        query = update.inline_query.query
+#        user_id = update.inline_query.from_user.id
+#        user = update.inline_query.from_user.__dict__
+#
+#        if str(user_id) in allowed_users.values():
+#             results = []
+#             events = self.store.get_events(user_id, query)
+#
+#             for event in events:
+#                 keyboard = create_keyboard(event, user)
+#                 result = InlineQueryResultArticle(id=event.eid,
+#                                                   title=event['name'],
+#                                                   description=event['description'],
+#                                                   thumb_url='http://celapalma.org/calendari_celp/inline_images/celp_bot_calendar.png',
+#                                                   input_message_content=InputTextMessageContent(
+#                                                       create_event_message(event, user),
+#                                                       parse_mode=ParseMode.MARKDOWN,
+#						       disable_web_page_preview=True
+#                                                   ),
+#                                                   reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
+#                 results.append(result)
 
-        if str(user_id) in allowed_users.values():
-             results = []
-             events = self.store.get_events(user_id, query)
+#             bot.answerInlineQuery(
+#                 update.inline_query.id,
+#                 results=results,
+#                 switch_pm_text='Crea una excursió nova...',
+#                 switch_pm_parameter='new',
+#                 is_personal=True
+#             )
 
-             for event in events:
-                 keyboard = create_keyboard(event, user)
-                 result = InlineQueryResultArticle(id=event.eid,
-                                                   title=event['name'],
-                                                   description=event['description'],
-                                                   thumb_url='http://celapalma.org/calendari_celp/inline_images/celp_bot_calendar.png',
-                                                   input_message_content=InputTextMessageContent(
-                                                       create_event_message(event, user),
-                                                       parse_mode=ParseMode.MARKDOWN,
-						       disable_web_page_preview=True
-                                                   ),
-                                                   reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
-                 results.append(result)
+#        elif str(user_id) in other_users.values():
+#             results = []
+#             events = self.store.get_events(user_id, query)
 
-             bot.answerInlineQuery(
-                 update.inline_query.id,
-                 results=results,
-                 switch_pm_text='Crea una excursió nova...',
-                 switch_pm_parameter='new',
-                 is_personal=True
-             )
+#             for event in events:
+#                 keyboard = create_keyboard(event, user)
+#                 result = InlineQueryResultArticle(id=event.eid,
+#                                                   title=event['name'],
+#                                                   description=event['description'],
+#                                                   thumb_url='http://celapalma.org/calendari_celp/inline_images/celp_bot_imatge.png',
+#                                                   input_message_content=InputTextMessageContent(
+#                                                       create_event_message(event, user),
+#                                                       parse_mode=ParseMode.MARKDOWN,
+#						       disable_web_page_preview=True
+#                                                   ),
+#                                                   reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
+#                 results.append(result)
 
-        elif str(user_id) in other_users.values():
-             results = []
-             events = self.store.get_events(user_id, query)
-
-             for event in events:
-                 keyboard = create_keyboard(event, user)
-                 result = InlineQueryResultArticle(id=event.eid,
-                                                   title=event['name'],
-                                                   description=event['description'],
-                                                   thumb_url='http://celapalma.org/calendari_celp/inline_images/celp_bot_imatge.png',
-                                                   input_message_content=InputTextMessageContent(
-                                                       create_event_message(event, user),
-                                                       parse_mode=ParseMode.MARKDOWN,
-						       disable_web_page_preview=True
-                                                   ),
-                                                   reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
-                 results.append(result)
-
-             bot.answerInlineQuery(
-                 update.inline_query.id,
-                 results=results,
+#             bot.answerInlineQuery(
+#                 update.inline_query.id,
+#                 results=results,
                  #switch_pm_text='Crea una excursió nova...',
                  #switch_pm_parameter='new',
-                 is_personal=True
-             )
+#                 is_personal=True
+#             )
 
     def get_handlers(self):
         return self.handlers
