@@ -207,12 +207,17 @@ def create_event_message(event, user):
                 message_text += '\nHi aniran: \n'
             for u in event['users']:
                 message_text += '\u27A9 '
-        
+
+                if u.get('username'):
+                    message_text += "["
+
                 message_text += u['first_name']
+
                 if u.get('last_name'):
                     message_text += ' ' + u['last_name']
+
                 if u.get('username') and eventdate2 > today3:
-                    message_text += ' [\U0001F4AC](https://telegram.me/' + u['username'] + ')'
+                    message_text += "](t.me/" + u['username'] + ")"
                 message_text += ' '
 
                 #Famílies de pare amb 1 o 2 fills
@@ -368,6 +373,7 @@ class InlineModule(object):
       user = query.from_user.__dict__
 
       (command, event_id) = tuple(data.split('_'))
+
       event = self.store.get_event(event_id)
 
       eventdate2= int(event['date']) + 600
@@ -487,7 +493,7 @@ class InlineModule(object):
             event = self.toggle_car(event, user)
             self.update_message(bot, event, update, user)
 
-        elif today3 >= eventdate2 and command != 'parking' and command != 'place':
+        elif today3 >= eventdate2 and command != 'parking' and command != 'place' and command != 'elimina':
             event = self.past_event(event, user)
             self.update_message(bot, event, update, user)
 
@@ -574,7 +580,42 @@ class InlineModule(object):
             else:
                 callback_query_id=query.id
                 bot.answerCallbackQuery(callback_query_id=query.id, text="\u231B\uFE0F Ha vençut la data i s'ha arxivat l'excursió.")
+        elif data.startswith( 'elimina' ):
+            callback_query_id = query.id
+            if event_id == "1":
+                bot.answerCallbackQuery(callback_query_id = query.id, text = "")
+                bot.editMessageText(text = "S'ha cancel·lat el procés d'eliminació.",
+                            chat_id = query.message.chat.id,
+                            message_id = query.message.message_id
+                )
+            elif event_id == "01":
+                bot.answerCallbackQuery(callback_query_id = query.id, text = "")
+                bot.editMessageText(text = "*Atenció!* Aquesta opció *no es pot desfer*.\n\nSegur que voleu eliminar tots els esdeveniments?",
+                            chat_id = query.message.chat.id,
+                            message_id = query.message.message_id,
+                            parse_mode=ParseMode.MARKDOWN,
+                            reply_markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Sí, elimina'ls", callback_data='elimina_001'), InlineKeyboardButton(text="No, cancel·la-ho!", callback_data='elimina_1')]])
+                )
+            elif event_id == "001":
+                bot.answerCallbackQuery(callback_query_id = query.id, text = "")
+                self.store.events_db.purge()
+                self.store.insert_event(event)
+                bot.editMessageText(text = "S'han eliminat *tots* els esdeveniments.",
+                            chat_id = query.message.chat.id,
+                            message_id = query.message.message_id,
+                            parse_mode=ParseMode.MARKDOWN,
+                )
+            else:
+                textmissatge = "S'ha eliminat l'excursió número " + str(int(event_id) - 1) + ". *" + event['name'] + "* 👍."
 
+                bot.editMessageText(text = textmissatge,
+                            chat_id = query.message.chat.id,
+                            message_id = query.message.message_id,
+                            parse_mode="Markdown",
+                )
+                bot.answerCallbackQuery(callback_query_id = query.id, text = "Esdeveniment eliminat.")
+
+                self.store.remove_event(event)
 
     def update_message(self, bot, event, update, user):
         query = update.callback_query
