@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import time
+import time, math
 from modules import inline
 from datetime import datetime
 
@@ -172,8 +172,9 @@ def parse_fields(field, value):
 
 
 def help_command(bot, update):
+    chat_id = update.message.chat_id
     if str(chat_id) == chats['group']:
-        bot.sendMessage(update.message.chat_id, text="Sóc el robot *Rutes guapes* i la meua funció és organitzar les excursions que es faran en aquest grup: establir la data, els punts de trobada, la ruta, la durada, etc. Podeu enviar les ordres següents si voleu informació extra:\n\n\\ruta: Envie el missatge de la pròxima ruta.\n\\llista: Envie la llista d'excursions que haveu fet.\nSi se vos acudeix cap altra funcionalitat que estiga bé, digueu-ho i l'@Artur mirarà d'incorporar-la 😉.", parse_mode="Markdown")
+        bot.sendMessage(update.message.chat_id, text="Sóc el robot *Rutes guapes* i la meua funció és organitzar les excursions que es faran en aquest grup: establir la data, els punts de trobada, la ruta, la durada, etc. Podeu enviar les ordres següents si voleu informació extra:\n\n/ruta: Envie el missatge de la pròxima ruta.\n/llista: Envie la llista d'excursions programades.\nSi se vos acudeix cap altra funcionalitat que estiga bé, digueu-ho i l'@Artur mirarà d'incorporar-la 😉.", parse_mode="Markdown")
     else:
         bot.sendMessage(update.message.chat_id, text='Aquest bot és privat i només alguns usuaris poden crear esdeveniments per a excursions. Si quan envies /start reps un missatge amb el teu \U0001F194, això vol dir que no tens permisos.')
 
@@ -186,7 +187,9 @@ class CommandsModule(object):
 #            CommandHandler('invite', self.invite_channel),
             CommandHandler('ruta', self.get_route_command),
             CommandHandler('llista', self.get_list_command),
-            CommandHandler('elimina', self.delete_command),
+            CommandHandler('esdeveniments', self.get_all_events_command),
+            CommandHandler('suprimeix', self.delete_command),
+#            CommandHandler('canvia', self.edit_command),
             CommandHandler('raw', self.get_raw_command),
             CommandHandler('users', self.get_users_command),
             CommandHandler('help', help_command),
@@ -204,6 +207,10 @@ class CommandsModule(object):
         if str(chat_id) == chats['group']:
             bot.sendMessage(chat_id, parse_mode='Markdown',
                             text="Bon dia! Envieu /ruta si voleu recordar quina és la pròxima ruta. Si voleu crear-ne una, envieu-me un missatge en privat 😉")
+        elif chat_id < 0:
+            bot.sendMessage(chat_id, parse_mode='Markdown',
+                            text="Aquest bot és per a *ús privat*, lamentablement haureu de sol·licitar permís al seu administrador si voleu que siga operatiu al vostre grup.")
+            bot.leaveChat(chat_id)
         else:
             if str(user_id) in allowed_users.values():
                 self.store.new_draft(user_id)
@@ -347,7 +354,7 @@ class CommandsModule(object):
         chat_id = update.message.chat_id
         draft = self.store.get_draft(user_id)
 
-        if str(chat_id) != chats['group']:
+        if str(chat_id) != chats['group'] and chat_id > 0:
             if draft:
                 self.store.remove_draft(user_id)
                 bot.sendMessage(
@@ -367,7 +374,7 @@ class CommandsModule(object):
         chat_id = update.message.chat_id
         draft = self.store.get_draft(user_id)
 
-        if str(chat_id) != chats['group']:
+        if str(chat_id) != chats['group'] and chat_id > 0:
             if draft:
                 current_field = draft['current_field']
                 field = FIELDS[current_field]
@@ -406,6 +413,10 @@ class CommandsModule(object):
                         text = "Encara no s'ha programat cap excursió!",
                         parse_mode = "MARKDOWN"
                 )
+        elif chat_id < 0:
+            bot.sendMessage(chat_id, parse_mode='Markdown',
+                            text="Aquest bot és per a *ús privat*, lamentablement haureu de sol·licitar permís al seu administrador si voleu que siga operatiu al vostre grup.")
+            bot.leaveChat(chat_id)
         else:
             bot.sendMessage(chat_id = update.message.chat_id,
                         text = "Aquesta ordre no es troba disponible als xats individuals.",
@@ -419,52 +430,52 @@ class CommandsModule(object):
         user_f = update.message.from_user.first_name
         user_u = update.message.from_user.username
         chat_id = update.message.chat_id
+
         message = "Ací teniu la llista de les pròximes excursions:\n\n"
-        esdevens = len(self.store.events_db) + 1
-        actualdate = datetime.now()
+        esdevens = self.store.events_db.all()
+#        esdevens = len(self.store.events_db) + 1
+        currentdate = datetime.now()
 
         if str(chat_id) == chats['group']:
-            y = 1
-            for x in range(2, esdevens):
-                eventX = self.store.get_event(x)
-
-                if eventX['month'] == 'Gener':
+            for x in range(1, len(esdevens)):
+                if esdevens[x]['month'] == 'Gener':
                      monthnum = 1
-                elif eventX['month'] == 'Febrer':
+                elif esdevens[x]['month'] == 'Febrer':
                      monthnum = 2
-                elif eventX['month'] == 'Març':
+                elif esdevens[x]['month'] == 'Març':
                      monthnum = 3
-                elif eventX['month'] == 'Abril':
+                elif esdevens[x]['month'] == 'Abril':
                      monthnum = 4
-                elif eventX['month'] == 'Maig':
+                elif esdevens[x]['month'] == 'Maig':
                      monthnum = 5
-                elif eventX['month'] == 'Juny':
+                elif esdevens[x]['month'] == 'Juny':
                      monthnum = 6
-                elif eventX['month'] == 'Juliol':
+                elif esdevens[x]['month'] == 'Juliol':
                      monthnum = 7
-                elif eventX['month'] == 'Agost':
+                elif esdevens[x]['month'] == 'Agost':
                      monthnum = 8
-                elif eventX['month'] == 'Setembre':
+                elif esdevens[x]['month'] == 'Setembre':
                      monthnum = 9
-                elif eventX['month'] == 'Octubre':
+                elif esdevens[x]['month'] == 'Octubre':
                      monthnum = 10
-                elif eventX['month'] == 'Novembre':
+                elif esdevens[x]['month'] == 'Novembre':
                      monthnum = 11
                 else:
                      monthnum = 12
 
-                if eventX == None:
-                    message = message
-                    y += 1
-                elif int(eventX['year']) >= actualdate.year and monthnum > int(actualdate.month):
-                    message += "_" + str(eventX.eid - y) + "_. *" + eventX['name'] + "* el " + inline.format_date(eventX['date']) + "\n"
-                elif monthnum == int(actualdate.month) and int(eventX['day']) >= actualdate.day:
-                    message += "_" + str(eventX.eid - y) + "_. *" + eventX['name'] + "* el " + inline.format_date(eventX['date']) + "\n"
+                if int(esdevens[x]['year']) >= currentdate.year and monthnum > int(currentdate.month):
+                    message += "_" + str(x) + "_. *" + esdevens[x]['name'] + "* el " + inline.format_date(esdevens[x]['date']) + "\n"
+                elif monthnum == int(currentdate.month) and int(esdevens[x]['day']) >= currentdate.day:
+                    message += "_" + str(x) + "_. *" + esdevens[x]['name'] + "* el " + inline.format_date(esdevens[x]['date']) + "\n"
 
             bot.sendMessage(chat_id = update.message.chat_id,
                         text = message,
                         parse_mode = "MARKDOWN"
             )
+        elif chat_id < 0:
+            bot.sendMessage(chat_id, parse_mode='Markdown',
+                            text="Aquest bot és per a *ús privat*, lamentablement haureu de sol·licitar permís al seu administrador si voleu que siga operatiu al vostre grup.")
+            bot.leaveChat(chat_id)
         else:
             bot.sendMessage(chat_id = update.message.chat_id,
                         text = "Aquesta ordre no es troba disponible als xats individuals.",
@@ -472,23 +483,97 @@ class CommandsModule(object):
             bot.sendMessage(chat_id = allowed_users['admin'],
                             text = "L'usuari " + user_f + " (@" + user_u + ", " + user_id + ") ha enviat l'ordre /llista."
             )
+
+    def get_all_events_command(self, bot, update):
+        user_id = str(update.message.from_user.id)
+        user_f = update.message.from_user.first_name
+        user_u = update.message.from_user.username
+        chat_id = update.message.chat_id
+
+        message = "Ací tens la llista de totes les excursions:\n\n"
+        esdevens = self.store.events_db.all()
+
+        if str(user_id) in allowed_users.values():
+            for x in range(1, len(esdevens)):
+                message += "_" + str(x) + "_. *" + esdevens[x]['name'] + "* el " + inline.format_date(esdevens[x]['date']) + "\n"
+
+            bot.sendMessage(chat_id = update.message.chat_id,
+                        text = message,
+                        parse_mode = "MARKDOWN"
+            )
+        else:
+            bot.sendMessage(
+                update.message.chat_id,
+                text="No tens permís per a realitzar aquesta acció."
+            )
+            bot.sendMessage(chat_id = allowed_users['admin'],
+                            text = "L'usuari " + user_f + " (@" + user_u + ", " + user_id + ") ha enviat l'ordre /events."
+            )
+
     def delete_command(self, bot, update):
         user_id = str(update.message.from_user.id)
         chat_id = update.message.chat_id
         user_f = update.message.from_user.first_name
         user_u = update.message.from_user.username
 
-        if str(user_id) == allowed_users['admin']:
-#            if len(args) == 0:
-                esdevens = len(self.store.events_db)
-                event = self.store.get_event(esdevens)
+        esdevens = self.store.events_db.all()
 
-                self.store.remove_event(event)
+        if str(user_id) in allowed_users.values():
+            if len(esdevens) > 1:
+                message = "Esteu a punt d'*eliminar un esdeveniment*. Trieu'ne un de la llista següent:\n\n"
+                keyboard = []
 
-                bot.sendMessage(update.message.chat_id,
-                        text = "S'ha eliminat l'última excursió 👍.",
-                        parse_mode = "Markdown",
+                for x in range(2, len(esdevens)+1):
+                    eventX = self.store.get_event(x)
+                    divis = math.ceil((x-1)/8)-1
+
+                    if eventX == None:
+                        message = message
+                    else:
+                        if len(keyboard) < (divis + 1):
+                            keyboard.append([])
+                        message += "_" + str(eventX.eid - 1) + "_. *" + eventX['name'] + "* el " + inline.format_date(eventX['date']) + "\n"
+                        keyboard[divis].append(InlineKeyboardButton(text=str(eventX.eid - 1), callback_data='elimina_' + str(eventX.eid)))
+                        if x == len(esdevens):
+                            keyboard.append([InlineKeyboardButton(text="Tots", callback_data='elimina_01'), InlineKeyboardButton(text="Cancel·la", callback_data='elimina_1')])
+
+                bot.sendMessage(chat_id = update.message.chat_id,
+                        text = message,
+                        parse_mode = "MARKDOWN",
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
                 )
+            else:
+                bot.sendMessage(chat_id = update.message.chat_id,
+                        text = "Encara no s'ha programat cap excursió!",
+                        parse_mode = "MARKDOWN"
+                )
+         
+        else:
+            bot.sendMessage(
+                update.message.chat_id,
+                text="No tens permís per a realitzar aquesta acció."
+            )
+            bot.sendMessage(chat_id = allowed_users['admin'],
+                            text = "L'usuari " + user_f + " (@" + user_u + ", " + user_id + ") ha enviat l'ordre /delete."
+            )
+
+#    def edit_command(self, bot, update):
+#        user_id = str(update.message.from_user.id)
+#        chat_id = update.message.chat_id
+#        user_f = update.message.from_user.first_name
+#        user_u = update.message.from_user.username
+
+#        if str(user_id) in allowed_users.values():
+#            if len(args) == 0:
+#                esdevens = len(self.store.events_db)
+#                event = self.store.get_event(esdevens)
+
+#                self.store.remove_event(event)
+
+#                bot.sendMessage(update.message.chat_id,
+#                        text = "S'ha eliminat l'última excursió 👍.",
+#                        parse_mode = "Markdown",
+#                )
 #            elif len(args) == 1:
 #                esdevens = int(args[0]) + 1
 #                event = self.store.get_event(str(esdevens))
@@ -504,14 +589,14 @@ class CommandsModule(object):
 #                        text = "Només podeu enviar-li un argument a esta ordre."
 #                )
          
-        else:
-            bot.sendMessage(
-                update.message.chat_id,
-                text="No tens permís per a realitzar aquesta acció."
-            )
-            bot.sendMessage(chat_id = allowed_users['admin'],
-                            text = "L'usuari " + user_f + " (@" + user_u + ", " + user_id + ") ha enviat la comanda /delete."
-            )
+#        else:
+#            bot.sendMessage(
+#                update.message.chat_id,
+#                text="No tens permís per a realitzar aquesta acció."
+#            )
+#            bot.sendMessage(chat_id = allowed_users['admin'],
+#                            text = "L'usuari " + user_f + " (@" + user_u + ", " + user_id + ") ha enviat l'ordre /delete."
+#            )
 
     def update_draft(self, bot, event, user_id, update, current_field):
         self.store.update_draft(user_id, event, current_field)
@@ -725,7 +810,7 @@ class CommandsModule(object):
 
     def create_event(self, bot, update, event):
         self.store.insert_event(event)
-        self.store.remove_draft(update.message.from_user.id)
+        self.store.remove_draft(str(update.message.from_user.id))
 
         keyboard = [[InlineKeyboardButton(text="Envia l'excursió", callback_data='enviagrup_' + str(event['id']))], []]
 #switch_inline_query=event['name'])], []]
@@ -797,7 +882,7 @@ class CommandsModule(object):
                 parse_mode='Markdown'
             )
             bot.sendMessage(chat_id = allowed_users['admin'],
-                            text = "L'usuari " + user_f + " (@" + user_u + ", " + user_id + ") ha enviat la comanda /users."
+                            text = "L'usuari " + user_f + " (@" + user_u + ", " + user_id + ") ha enviat l'ordre /users."
             )
 
     def get_raw_command(self, bot, update):
@@ -827,7 +912,7 @@ class CommandsModule(object):
                 parse_mode='Markdown'
             )
             bot.sendMessage(chat_id = allowed_users['admin'],
-                            text = "L'usuari " + user_f + " (@" + user_u + ", " + user_id + ") ha enviat la comanda /raw."
+                            text = "L'usuari " + user_f + " (@" + user_u + ", " + user_id + ") ha enviat l'ordre /raw."
             )
 
     def get_handlers(self):
